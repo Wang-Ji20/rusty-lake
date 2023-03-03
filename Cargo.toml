@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "hw"
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2023"
+authors = ["Ji Wang <824466875@qq.com>"]
+description = "Rust learn Repo"
+readme = "./README.md"

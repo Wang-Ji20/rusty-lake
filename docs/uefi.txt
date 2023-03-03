@@ -1,0 +1,3 @@
+UEFI 101
+
+https://rust-osdev.github.io/uefi-rs/HEAD/concepts/boot_stages.html
