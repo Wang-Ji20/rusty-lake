@@ -1,4 +1,5 @@
-use std::{env, error::Error, fs};
+use scheme::run_compiler_pipeline;
+use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -8,7 +9,7 @@ fn main() {
         std::process::exit(1);
     });
 
-    if let Err(e) = run_compiler_pipeline(config) {
+    if let Err(e) = run_compiler_pipeline(config.source_name, config.output_name) {
         println!("Application error: {}", e);
         std::process::exit(1);
     }
@@ -48,47 +49,4 @@ fn build_test() {
     let config = Config::build(mock_args).unwrap();
     assert_eq!(config.source_name, "source.scm");
     assert_eq!(config.output_name, "output.asm");
-}
-
-fn run_compiler_pipeline(config: Config) -> Result<(), Box<dyn Error>> {
-    let source = fs::read_to_string(config.source_name)?;
-    let compiled_source = compile(source);
-    fs::write(config.output_name, compiled_source)?;
-    Ok(())
-}
-
-#[test]
-fn run_compiler_pipeline_test() {
-    fs::write("sourcetest.scm", "123").unwrap();
-    let config = Config {
-        source_name: String::from("sourcetest.scm"),
-        output_name: String::from("outputtest.asm"),
-    };
-    let result = run_compiler_pipeline(config);
-    assert!(result.is_ok());
-    let compiled_source = fs::read_to_string("outputtest.asm").unwrap();
-    assert_eq!(
-        compiled_source,
-        ".global scheme\n.type scheme, @function\nscheme:\nmovq $123, %rax\nret"
-    );
-    fs::remove_file("sourcetest.scm").unwrap();
-    fs::remove_file("outputtest.asm").unwrap();
-}
-
-fn compile(source: String) -> String {
-    let parsed_int: i64 = source.parse().unwrap();
-    format!(
-        ".global scheme\n.type scheme, @function\nscheme:\nmovq ${}, %rax\nret",
-        parsed_int
-    )
-}
-
-#[test]
-fn compile_test() {
-    let source = String::from("123");
-    let compiled_source = compile(source);
-    assert_eq!(
-        compiled_source,
-        ".global scheme\n.type scheme, @function\nscheme:\nmovq $123, %rax\nret"
-    );
 }
