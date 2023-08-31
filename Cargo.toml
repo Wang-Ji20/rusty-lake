@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "hw",
-    "cv"
+    "cv",
+    "scheme"
 ]
 
 [workspace.package]
