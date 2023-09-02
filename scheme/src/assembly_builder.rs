@@ -18,10 +18,10 @@ impl AssemblyBuilder {
         self.assembly_codes.push(assembly_code);
     }
 
-    pub fn build(self) -> String {
+    pub fn build(&self) -> String {
         self.validate().unwrap();
         let mut result = String::new();
-        for assembly_code in self.assembly_codes {
+        for assembly_code in &self.assembly_codes {
             result.push_str(&assembly_code);
             result.push_str("\n");
         }

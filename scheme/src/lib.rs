@@ -1,8 +1,14 @@
 mod instruction;
+use code_generator::CodeGenerator;
 use instruction::*;
 
 mod assembly_builder;
 use assembly_builder::AssemblyBuilder;
+use lexer::Cursor;
+
+mod lexer;
+
+mod code_generator;
 
 use std::{error::Error, fs};
 
@@ -26,7 +32,7 @@ fn run_compiler_pipeline_test() {
     let compiled_source = fs::read_to_string("outputtest.asm").unwrap();
     assert_eq!(
         compiled_source,
-        ".global scheme\n.type scheme, @function\nscheme:\nmovq $123, %rax\nret\n"
+        ".global __scheme__anonymous__function__0\n.type __scheme__anonymous__function__0, @function\n__scheme__anonymous__function__0:\nmovq $123, %rax\nret\n"
     );
 
     fs::remove_file("sourcetest.scm").unwrap();
@@ -34,12 +40,10 @@ fn run_compiler_pipeline_test() {
 }
 
 fn compile(source: String) -> String {
-    let mut assembly_builder = AssemblyBuilder::new();
-    assembly_builder.new_fn("scheme");
-    let parsed_int: i64 = source.parse().unwrap();
-    assembly_builder.mov(Mov::ImmediateToRegister(parsed_int, Register::RAX));
-    assembly_builder.ret();
-    assembly_builder.build()
+    let assembly_builder = AssemblyBuilder::new();
+    let parser = Cursor::new(&source);
+    let mut codegen = CodeGenerator::new(parser, assembly_builder);
+    codegen.start().unwrap().build()
 }
 
 #[test]
@@ -48,6 +52,6 @@ fn compile_test() {
     let compiled_source = compile(source);
     assert_eq!(
         compiled_source,
-        ".global scheme\n.type scheme, @function\nscheme:\nmovq $123, %rax\nret\n"
+        ".global __scheme__anonymous__function__0\n.type __scheme__anonymous__function__0, @function\n__scheme__anonymous__function__0:\nmovq $123, %rax\nret\n"
     );
 }

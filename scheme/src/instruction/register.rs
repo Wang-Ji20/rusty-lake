@@ -10,6 +10,7 @@ pub enum Register {
     RSP,
     RBP,
     RIP,
+    XMM0,
 }
 
 impl Display for Register {
@@ -24,6 +25,7 @@ impl Display for Register {
             Register::RSP => "%rsp",
             Register::RBP => "%rbp",
             Register::RIP => "%rip",
+            Register::XMM0 => "%xmm0",
         };
         write!(f, "{}", register_name)
     }
