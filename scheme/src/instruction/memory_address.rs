@@ -4,6 +4,7 @@ use std::fmt::Display;
 pub enum MemAddr {
     Address(i64),
     OffsetDereference(i64, Register),
+    LabelDereference(String, Register),
 }
 
 impl Display for MemAddr {
@@ -11,6 +12,7 @@ impl Display for MemAddr {
         let mem_addr = match self {
             MemAddr::Address(addr) => format!("{:#x}", addr),
             MemAddr::OffsetDereference(offset, base) => format!("{}({})", offset, base),
+            MemAddr::LabelDereference(label, register) => format!("{}({})", label, register),
         };
         write!(f, "{}", mem_addr)
     }
@@ -26,6 +28,9 @@ mod tests {
         assert_eq!(mem_addr.to_string(), "0x0");
 
         let mem_addr = MemAddr::OffsetDereference(0, Register::RAX);
-        assert_eq!(mem_addr.to_string(), format!("0({})", Register::RAX));
+        assert_eq!(mem_addr.to_string(), "0(%rax)");
+
+        let mem_addr = MemAddr::LabelDereference(".LC".to_string(), Register::RIP);
+        assert_eq!(mem_addr.to_string(), ".LC(%rip)")
     }
 }

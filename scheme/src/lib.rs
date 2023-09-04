@@ -10,6 +10,8 @@ mod lexer;
 
 mod code_generator;
 
+mod value;
+
 use std::{error::Error, fs};
 
 pub fn run_compiler_pipeline(
@@ -32,7 +34,7 @@ fn run_compiler_pipeline_test() {
     let compiled_source = fs::read_to_string("outputtest.asm").unwrap();
     assert_eq!(
         compiled_source,
-        ".global __scheme__anonymous__function__0\n.type __scheme__anonymous__function__0, @function\n__scheme__anonymous__function__0:\nmovq $123, %rax\nret\n"
+        ".global __scheme__anonymous__function__0\n.type __scheme__anonymous__function__0, @function\n__scheme__anonymous__function__0:\n        movq $123, %rax\n        ret\n"
     );
 
     fs::remove_file("sourcetest.scm").unwrap();
@@ -52,6 +54,6 @@ fn compile_test() {
     let compiled_source = compile(source);
     assert_eq!(
         compiled_source,
-        ".global __scheme__anonymous__function__0\n.type __scheme__anonymous__function__0, @function\n__scheme__anonymous__function__0:\nmovq $123, %rax\nret\n"
+        ".global __scheme__anonymous__function__0\n.type __scheme__anonymous__function__0, @function\n__scheme__anonymous__function__0:\n        movq $123, %rax\n        ret\n"
     );
 }

@@ -1,11 +1,16 @@
+use crate::lexer::Literals;
+use crate::value::Value;
 use crate::Mov;
 use crate::Register;
 use crate::{assembly_builder::AssemblyBuilder, lexer::Cursor};
 
+///! Code Generator receives the high level structure of scheme code,
+///! it does not deal with the assembly code, only structure.
 pub struct CodeGenerator<'a> {
     parser: Cursor<'a>,
     asm_builder: AssemblyBuilder,
     function_count: u64,
+    nested_count: u64,
 }
 
 impl CodeGenerator<'_> {
@@ -14,6 +19,7 @@ impl CodeGenerator<'_> {
             parser: parser,
             asm_builder: builder,
             function_count: 0,
+            nested_count: 0,
         }
     }
 
@@ -23,7 +29,9 @@ impl CodeGenerator<'_> {
                 crate::lexer::Literals::Int(i) => {
                     self.int(i);
                 }
-                crate::lexer::Literals::Float(_) => todo!(),
+                s @ crate::lexer::Literals::Float(_) => {
+                    self.float(s);
+                }
                 crate::lexer::Literals::Boolean(_) => todo!(),
                 crate::lexer::Literals::Char(_) => todo!(),
                 crate::lexer::Literals::Unknown => break Err("unknown token\n"),
@@ -34,6 +42,7 @@ impl CodeGenerator<'_> {
 
     fn new_fn(&mut self, s: &str) -> &mut Self {
         self.asm_builder.new_fn(s);
+        self.nested_count += 1;
         self
     }
 
@@ -45,6 +54,7 @@ impl CodeGenerator<'_> {
 
     fn ret(&mut self) -> &mut Self {
         self.asm_builder.ret();
+        self.nested_count -= 1;
         self
     }
 
@@ -56,7 +66,16 @@ impl CodeGenerator<'_> {
         self
     }
 
+    fn float(&mut self, f: Literals) -> &Value {
+        self.asm_builder.new_float(f)
+    }
+
+    fn validate(&self) {
+        assert!(self.nested_count == 0);
+    }
+
     pub fn build(&self) -> String {
+        self.validate();
         self.asm_builder.build()
     }
 }
@@ -71,7 +90,7 @@ mod tests {
         let result = codegen.new_fn("scheme").ret().build();
         assert_eq!(
             result,
-            ".global scheme\n.type scheme, @function\nscheme:\nret\n"
+            ".global scheme\n.type scheme, @function\nscheme:\n        ret\n"
         )
     }
 }
