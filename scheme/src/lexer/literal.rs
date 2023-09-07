@@ -1,7 +1,13 @@
 use std::str::Chars;
 
-#[derive(Clone, Copy, Debug)]
-pub enum Literals {
+#[derive(Clone, Debug)]
+pub enum Tokens {
+    /// "("
+    LPAREN,
+    /// ")"
+    RPAREN,
+    /// Literals:
+    Atom(String),
     Int(i64),
     Float(f64),
     /// #t, #f
@@ -62,54 +68,64 @@ impl Cursor<'_> {
         }
     }
 
-    pub fn get_next_token(&mut self) -> Literals {
+    pub fn get_next_token(&mut self) -> Tokens {
         self.consume_delimiter();
         match self.peek() {
+            '(' => {
+                self.consume();
+                Tokens::LPAREN
+            }
+            ')' => {
+                self.consume();
+                Tokens::RPAREN
+            }
             c if c.is_ascii_digit() => self.get_number(),
             '#' => self.get_hashtag_literals(),
-            EOF_SYMBOL => Literals::EOF,
-            _ => Literals::Unknown,
+            EOF_SYMBOL => Tokens::EOF,
+            atom => {
+                Tokens::Atom(self.consume_while_clone(|c: char| !c.is_whitespace() && c != ')'))
+            }
         }
     }
 
-    fn get_number(&mut self) -> Literals {
+    fn get_number(&mut self) -> Tokens {
         let number = self.consume_while_clone(|c: char| c.is_ascii_digit());
 
         match self.peek() {
-            '.' => self.get_float_seen_dot(number),
-            _ if self.is_delimiter() => Literals::Int(number.parse().unwrap()),
-            _ => Literals::Unknown,
+            '.' => self.get_float_after_dot(number),
+            c if self.is_delimiter() || c == ')' => Tokens::Int(number.parse().unwrap()),
+            _ => Tokens::Unknown,
         }
     }
 
-    fn get_float_seen_dot(&mut self, mut left_part: String) -> Literals {
+    fn get_float_after_dot(&mut self, mut left_part: String) -> Tokens {
         self.consume();
         let after_dot = self.consume_while_clone(|c: char| c.is_ascii_digit());
         left_part.push('.');
         left_part.push_str(&after_dot);
 
         match self.is_delimiter() {
-            true => Literals::Float(left_part.parse().unwrap()),
-            false => Literals::Unknown,
+            true => Tokens::Float(left_part.parse().unwrap()),
+            false => Tokens::Unknown,
         }
     }
 
-    fn get_hashtag_literals(&mut self) -> Literals {
+    fn get_hashtag_literals(&mut self) -> Tokens {
         self.consume();
         match self.consume().unwrap() {
-            't' => Literals::Boolean(true),
-            'f' => Literals::Boolean(false),
+            't' => Tokens::Boolean(true),
+            'f' => Tokens::Boolean(false),
             '\\' => self.get_char(),
-            _ => Literals::Unknown,
+            _ => Tokens::Unknown,
         }
     }
 
-    fn get_char(&mut self) -> Literals {
+    fn get_char(&mut self) -> Tokens {
         let c = self.consume().unwrap();
         if self.is_delimiter() {
-            Literals::Char(c)
+            Tokens::Char(c)
         } else {
-            Literals::Unknown
+            Tokens::Unknown
         }
     }
 }
@@ -138,7 +154,7 @@ mod tests {
     fn get_int_test() {
         let number_text = "12345";
         let mut lexer = Cursor::new(number_text);
-        if let Literals::Int(i) = lexer.get_number() {
+        if let Tokens::Int(i) = lexer.get_number() {
             assert_eq!(i, 12345);
         } else {
             assert!(UNREACHABLE);
@@ -149,7 +165,7 @@ mod tests {
     fn parse_int_test() {
         let number_test = "12345";
         let mut lexer = Cursor::new(number_test);
-        if let Literals::Int(i) = lexer.get_next_token() {
+        if let Tokens::Int(i) = lexer.get_next_token() {
             assert_eq!(i, 12345);
         } else {
             assert!(UNREACHABLE);
@@ -160,7 +176,7 @@ mod tests {
     fn parse_float_test() {
         let float_test = "1.2";
         let mut lexer = Cursor::new(float_test);
-        if let Literals::Float(i) = lexer.get_next_token() {
+        if let Tokens::Float(i) = lexer.get_next_token() {
             assert_eq!(i, 1.2);
             return;
         }
@@ -171,7 +187,7 @@ mod tests {
     fn parse_bool_true_test() {
         let bool_test = "#t";
         let mut lexer = Cursor::new(bool_test);
-        if let Literals::Boolean(b) = lexer.get_next_token() {
+        if let Tokens::Boolean(b) = lexer.get_next_token() {
             assert!(b);
             return;
         }
@@ -182,7 +198,7 @@ mod tests {
     fn parse_bool_false_test() {
         let bool_test = "#f";
         let mut lexer = Cursor::new(bool_test);
-        if let Literals::Boolean(b) = lexer.get_next_token() {
+        if let Tokens::Boolean(b) = lexer.get_next_token() {
             assert!(!b);
             return;
         }
@@ -193,7 +209,7 @@ mod tests {
     fn parse_char_test() {
         let char_test = r"#\c";
         let mut lexer = Cursor::new(char_test);
-        if let Literals::Char(c) = lexer.get_next_token() {
+        if let Tokens::Char(c) = lexer.get_next_token() {
             assert_eq!(c, 'c');
             return;
         }
@@ -204,16 +220,48 @@ mod tests {
     fn parse_two_tokens() {
         let tokens_test = r"123.456 #t";
         let mut lexer = Cursor::new(tokens_test);
-        if let Literals::Float(f) = lexer.get_next_token() {
+        if let Tokens::Float(f) = lexer.get_next_token() {
             assert_eq!(f, 123.456);
         } else {
             assert!(UNREACHABLE)
         }
 
-        if let Literals::Boolean(b) = lexer.get_next_token() {
+        if let Tokens::Boolean(b) = lexer.get_next_token() {
             assert_eq!(b, true)
         } else {
             assert!(UNREACHABLE)
+        }
+    }
+
+    #[test]
+    fn parse_paren_atom() {
+        let paren_test = r"(+ 1 2)";
+        let mut lexer = Cursor::new(paren_test);
+
+        if let Tokens::LPAREN = lexer.get_next_token() {
+        } else {
+            unreachable!();
+        }
+
+        if let Tokens::Atom(s) = lexer.get_next_token() {
+            assert_eq!(s, "+");
+        } else {
+            unreachable!();
+        }
+
+        if let Tokens::Int(1) = lexer.get_next_token() {
+        } else {
+            unreachable!();
+        }
+
+        if let Tokens::Int(2) = lexer.get_next_token() {
+        } else {
+            unreachable!();
+        }
+
+        if let Tokens::RPAREN = lexer.get_next_token() {
+        } else {
+            unreachable!();
         }
     }
 }

@@ -2,17 +2,17 @@ use std::fmt::Display;
 
 use crate::{
     instruction::{MemAddr, Register},
-    lexer::Literals,
+    lexer::Tokens,
 };
 
 #[derive(Clone, Debug)]
 pub struct Value {
-    literal: Literals,
+    literal: Tokens,
     pub label: String,
 }
 
 impl Value {
-    pub fn new(literal: Literals, label: String) -> Value {
+    pub fn new(literal: Tokens, label: String) -> Value {
         Value {
             literal: literal,
             label: label,
@@ -27,10 +27,10 @@ impl Value {
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let type_value = match self.literal {
-            Literals::Int(i) => format!(".quad   {}", i),
-            Literals::Float(f) => format!(".quad   {:#x}", f.to_bits()),
-            Literals::Boolean(b) => format!(".byte   {}", b as u64),
-            Literals::Char(c) => format!(".long {}", c as u32),
+            Tokens::Int(i) => format!(".quad   {}", i),
+            Tokens::Float(f) => format!(".quad   {:#x}", f.to_bits()),
+            Tokens::Boolean(b) => format!(".byte   {}", b as u64),
+            Tokens::Char(c) => format!(".long {}", c as u32),
             _ => todo!(),
         };
         write!(f, "{}:\n    {}\n", self.label, type_value)
@@ -43,7 +43,7 @@ mod tests {
 
     #[test]
     fn test_float_value() {
-        let v = Value::new(Literals::Float(2.0), "LC_0".to_string());
+        let v = Value::new(Tokens::Float(2.0), "LC_0".to_string());
         assert_eq!(
             format!("{}", v),
             r"LC_0:

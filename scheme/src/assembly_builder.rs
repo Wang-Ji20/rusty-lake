@@ -1,4 +1,4 @@
-use crate::{instruction, lexer::Literals, value::Value};
+use crate::{instruction, lexer::Tokens, value::Value};
 use instruction::*;
 
 pub struct AssemblyBuilder {
@@ -47,6 +47,10 @@ impl AssemblyBuilder {
         self.add(mov_code);
     }
 
+    pub fn mov_float(&mut self, v: Value, reg: Register) {
+        self.add(format!("{}", MovSd::MemToRegister(v.get_address(), reg)))
+    }
+
     pub fn ret(&mut self) {
         self.add(String::from("ret"));
     }
@@ -57,7 +61,7 @@ impl AssemblyBuilder {
         self.add(format!("{}:", name));
     }
 
-    pub fn new_float(&mut self, f: Literals) -> &Value {
+    pub fn new_float(&mut self, f: Tokens) -> &Value {
         self.data_section
             .push(Value::new(f, format!("LC_{}", self.data_section.len())));
         self.data_section.last().unwrap()

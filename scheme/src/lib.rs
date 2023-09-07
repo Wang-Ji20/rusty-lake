@@ -8,6 +8,8 @@ use lexer::Cursor;
 
 mod lexer;
 
+mod parser;
+
 mod code_generator;
 
 mod value;

@@ -1,4 +1,4 @@
-use crate::lexer::Literals;
+use crate::lexer::Tokens;
 use crate::value::Value;
 use crate::Mov;
 use crate::Register;
@@ -26,16 +26,17 @@ impl CodeGenerator<'_> {
     pub fn start(&mut self) -> Result<&Self, &'static str> {
         loop {
             match self.parser.get_next_token() {
-                crate::lexer::Literals::Int(i) => {
+                crate::lexer::Tokens::Int(i) => {
                     self.int(i);
                 }
-                s @ crate::lexer::Literals::Float(_) => {
+                s @ crate::lexer::Tokens::Float(_) => {
                     self.float(s);
                 }
-                crate::lexer::Literals::Boolean(_) => todo!(),
-                crate::lexer::Literals::Char(_) => todo!(),
-                crate::lexer::Literals::Unknown => break Err("unknown token\n"),
-                crate::lexer::Literals::EOF => break Ok(self),
+                crate::lexer::Tokens::Boolean(_) => todo!(),
+                crate::lexer::Tokens::Char(_) => todo!(),
+                crate::lexer::Tokens::Unknown => break Err("unknown token\n"),
+                crate::lexer::Tokens::EOF => break Ok(self),
+                _ => todo!(),
             }
         }
     }
@@ -58,6 +59,12 @@ impl CodeGenerator<'_> {
         self
     }
 
+    fn ret_float(&mut self, f: &Value) -> &mut Self {
+        self.asm_builder.mov_float(f.clone(), Register::XMM0);
+        self.asm_builder.ret();
+        self
+    }
+
     fn int(&mut self, i: i64) -> &mut Self {
         self.new_anonymous_fn();
         self.asm_builder
@@ -66,7 +73,7 @@ impl CodeGenerator<'_> {
         self
     }
 
-    fn float(&mut self, f: Literals) -> &Value {
+    fn float(&mut self, f: Tokens) -> &Value {
         self.asm_builder.new_float(f)
     }
 

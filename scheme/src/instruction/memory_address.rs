@@ -1,6 +1,7 @@
 use crate::instruction::register::Register;
 use std::fmt::Display;
 
+#[derive(Clone)]
 pub enum MemAddr {
     Address(i64),
     OffsetDereference(i64, Register),
