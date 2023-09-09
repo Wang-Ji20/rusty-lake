@@ -8,6 +8,15 @@ pub enum LispVal {
     Bool(bool),
 }
 
+impl LispVal {
+    pub fn to_integer(&self) -> Option<i64> {
+        match self {
+            LispVal::Integer(i) => Some(*i),
+            _ => None,
+        }
+    }
+}
+
 pub struct Parser<'a> {
     lexer: Cursor<'a>,
 }
@@ -28,6 +37,9 @@ impl Parser<'_> {
         match l {
             lexer::Tokens::RPAREN => todo!(),
             lexer::Tokens::Float(f) => todo!(),
+            lexer::Tokens::QUOTE => {
+                LispVal::List(vec![LispVal::Atom("quote".to_string()), self.parse()])
+            }
             lexer::Tokens::Char(_) => todo!(),
             lexer::Tokens::Unknown => todo!(),
             lexer::Tokens::EOF => todo!(),
@@ -132,6 +144,20 @@ mod tests {
             ]),
         ]);
 
+        assert_eq!(parser.parse(), equivlent_lispval);
+    }
+
+    #[test]
+    fn test_parse_quote() {
+        let mut parser = Parser::new("'(1 2 3)");
+        let equivlent_lispval = LispVal::List(vec![
+            LispVal::Atom("quote".to_string()),
+            LispVal::List(vec![
+                LispVal::Integer(1),
+                LispVal::Integer(2),
+                LispVal::Integer(3),
+            ]),
+        ]);
         assert_eq!(parser.parse(), equivlent_lispval);
     }
 }

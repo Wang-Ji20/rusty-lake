@@ -10,6 +10,8 @@ mod lexer;
 
 mod parser;
 
+mod interpreter;
+
 mod code_generator;
 
 mod value;

@@ -6,6 +6,8 @@ pub enum Tokens {
     LPAREN,
     /// ")"
     RPAREN,
+    /// "'"
+    QUOTE,
     /// Literals:
     Atom(String),
     Int(i64),
@@ -78,6 +80,10 @@ impl Cursor<'_> {
             ')' => {
                 self.consume();
                 Tokens::RPAREN
+            }
+            '\'' => {
+                self.consume();
+                Tokens::QUOTE
             }
             c if c.is_ascii_digit() => self.get_number(),
             '#' => self.get_hashtag_literals(),
