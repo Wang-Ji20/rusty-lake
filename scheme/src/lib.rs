@@ -1,3 +1,6 @@
+/// This package provides a compiler and an interpreter for a subset of the Scheme programming language.
+/// I am writing this to learn more about Rust.
+/// This package also privides CLI interface to them. Language server and frontends are in another package.
 mod instruction;
 use code_generator::CodeGenerator;
 use instruction::*;
@@ -10,7 +13,7 @@ mod lexer;
 
 mod parser;
 
-mod interpreter;
+pub mod interpreter;
 
 mod code_generator;
 

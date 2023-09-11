@@ -5,4 +5,13 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "scheme-compiler-cli"
+path = "src/bin/compiler.rs"
+
+[[bin]]
+name = "scheme-intepreter-cli"
+path = "src/bin/intepreter.rs"
+
 [dependencies]
+clap = { version = "4.4.2", features = ["derive"] }

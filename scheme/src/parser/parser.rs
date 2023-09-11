@@ -6,6 +6,7 @@ pub enum LispVal {
     List(Vec<LispVal>),
     Integer(i64),
     Bool(bool),
+    Function(fn(&[LispVal]) -> LispVal),
 }
 
 impl LispVal {
@@ -36,7 +37,7 @@ impl Parser<'_> {
     fn parse_literals(&mut self, l: Tokens) -> LispVal {
         match l {
             lexer::Tokens::RPAREN => todo!(),
-            lexer::Tokens::Float(f) => todo!(),
+            lexer::Tokens::Float(_) => todo!(),
             lexer::Tokens::QUOTE => {
                 LispVal::List(vec![LispVal::Atom("quote".to_string()), self.parse()])
             }
@@ -47,7 +48,6 @@ impl Parser<'_> {
             Tokens::Int(i) => LispVal::Integer(i),
             Tokens::Boolean(b) => LispVal::Bool(b),
             Tokens::LPAREN => self.parse_list(),
-            _ => panic!("not Literal"),
         }
     }
 

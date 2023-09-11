@@ -1,23 +1,51 @@
+use std::io::Write;
+
 use crate::parser::{parser::LispVal, Parser};
 
 use super::environment::Environment;
 
-pub struct Interpreter<'a> {
-    parser: Parser<'a>,
+pub struct Interpreter {
     env: Environment,
 }
 
+const WELCOME: &str = "Welcome to a Scheme interpreter!";
+const BYE: &str = "Avē Imperātor, moritūrī tē salūtant!";
+const PROMPT: &str = "]=> ";
+
 /// This implementation always eagerly evaluates all expressions.
-impl Interpreter<'_> {
-    fn new(s: &str) -> Interpreter {
+impl Interpreter {
+    pub fn new() -> Interpreter {
         Interpreter {
-            parser: Parser::new(s),
             env: Environment::new(),
         }
     }
 
-    fn eval_all(&mut self) -> Result<LispVal, String> {
-        let ast = self.parser.parse();
+    pub fn interpret_file(&mut self, path: std::path::PathBuf) -> Result<LispVal, String> {
+        let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+        self.interpret(&content)
+    }
+
+    pub fn interpret_repl(&mut self) {
+        println!("{}", WELCOME);
+        loop {
+            print!("{}", PROMPT);
+            std::io::stdout().flush().unwrap();
+            let mut input = String::new();
+            let input_size = std::io::stdin().read_line(&mut input).unwrap();
+            if input_size == 0 {
+                println!("{}", BYE);
+                break;
+            }
+            let result = self.interpret(&input);
+            match result {
+                Ok(v) => println!("\n{:?}\n", v),
+                Err(e) => println!("\nError: {}\n", e),
+            }
+        }
+    }
+
+    pub fn interpret(&mut self, s: &str) -> Result<LispVal, String> {
+        let ast = Parser::new(s).parse();
         self.eval(&ast)
     }
 
@@ -27,6 +55,7 @@ impl Interpreter<'_> {
             LispVal::List(v) => self.eval_list(v),
             i @ LispVal::Integer(_) => Ok(i.clone()),
             LispVal::Bool(_) => todo!(),
+            _ => todo!(),
         }
     }
 
@@ -38,8 +67,8 @@ impl Interpreter<'_> {
                 .ok_or("cannot split".to_string())
                 .and_then(|v| {
                     let (LispVal::Atom(s), operands) = v else {
-                                   return Err(format!("{:?} is not applicable to {:?}", v.0, v.1))
-                               };
+                        return Err(format!("{:?} is not applicable to {:?}", v.0, v.1));
+                    };
                     if s == "quote" {
                         return Ok(operands[0].clone());
                     }
@@ -72,13 +101,15 @@ impl Interpreter<'_> {
                 .ok_or(format!("Cannot add {:?}", lisp_int))
                 .and_then(|i| {
                     let Some(ac_int) = acc.to_integer() else {
-                        return Err(format!("Cannot add {:?}", acc))
+                        return Err(format!("Cannot add {:?}", acc));
                     };
                     Ok(f(ac_int, i))
                 })
                 .map(LispVal::Integer)
         }
     }
+
+    /// special forms
 
     fn add_int(acc: i64, i: i64) -> i64 {
         acc + i
@@ -107,7 +138,7 @@ impl Interpreter<'_> {
             .ok_or("Cannot take car of empty list".to_string())
             .and_then(|v| {
                 let LispVal::List(v) = v else {
-                    return Err("Cannot take car of non-list".to_string())
+                    return Err("Cannot take car of non-list".to_string());
                 };
                 Ok(v)
             })
@@ -123,7 +154,7 @@ impl Interpreter<'_> {
             .ok_or("Cannot take cdr of empty list".to_string())
             .and_then(|v| {
                 let LispVal::List(v) = v else {
-                    return Err("Cannot take cdr of non-list".to_string())
+                    return Err("Cannot take cdr of non-list".to_string());
                 };
                 Ok(v)
             })
@@ -135,7 +166,7 @@ impl Interpreter<'_> {
             .ok_or("Cannot take cons of empty list".to_string())
             .and_then(|(v, v2)| {
                 let LispVal::List(mut v2) = v2[0].clone() else {
-                    return Err("Cannot take cons of non-list".to_string())
+                    return Err("Cannot take cons of non-list".to_string());
                 };
                 v2.insert(0, v.clone());
                 Ok(LispVal::List(v2))
@@ -165,14 +196,12 @@ impl Interpreter<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::interpreter;
-
     use super::*;
 
     #[test]
     fn test_eval_integer() {
-        let mut interpreter = Interpreter::new("4");
-        if let LispVal::Integer(4) = interpreter.eval_all().unwrap() {
+        let interpreter = Interpreter::new().interpret("4");
+        if let LispVal::Integer(4) = interpreter.unwrap() {
         } else {
             unreachable!();
         }
@@ -180,8 +209,8 @@ mod tests {
 
     #[test]
     fn test_eval_add() {
-        let mut interpreter = Interpreter::new("(+ 1 2 3)");
-        if let LispVal::Integer(6) = interpreter.eval_all().unwrap() {
+        let interpreter = Interpreter::new().interpret("(+ 1 2 3)");
+        if let LispVal::Integer(6) = interpreter.unwrap() {
         } else {
             unreachable!();
         }
@@ -189,8 +218,8 @@ mod tests {
 
     #[test]
     fn test_eval_mul() {
-        let mut interpreter = Interpreter::new("(* 4 2 3)");
-        if let LispVal::Integer(i) = interpreter.eval_all().unwrap() {
+        let interpreter = Interpreter::new().interpret("(* 4 2 3)");
+        if let LispVal::Integer(i) = interpreter.unwrap() {
             assert_eq!(i, 24);
         } else {
             unreachable!();
@@ -199,8 +228,8 @@ mod tests {
 
     #[test]
     fn test_eval_sub() {
-        let mut interpreter = Interpreter::new("(- 4 2 3)");
-        if let LispVal::Integer(i) = interpreter.eval_all().unwrap() {
+        let interpreter = Interpreter::new().interpret("(- 4 2 3)");
+        if let LispVal::Integer(i) = interpreter.unwrap() {
             assert_eq!(i, -1);
         } else {
             unreachable!();
@@ -209,8 +238,8 @@ mod tests {
 
     #[test]
     fn test_eval_car() {
-        let mut interpreter = Interpreter::new("(car '(1 2 3))");
-        if let LispVal::Integer(i) = interpreter.eval_all().unwrap() {
+        let interpreter = Interpreter::new().interpret("(car '(1 2 3))");
+        if let LispVal::Integer(i) = interpreter.unwrap() {
             assert_eq!(i, 1);
         } else {
             unreachable!();
@@ -219,8 +248,8 @@ mod tests {
 
     #[test]
     fn test_eval_cdr() {
-        let mut interpreter = Interpreter::new("(cdr '(1 2 3))");
-        if let LispVal::List(v) = interpreter.eval_all().unwrap() {
+        let interpreter = Interpreter::new().interpret("(cdr '(1 2 3))");
+        if let LispVal::List(v) = interpreter.unwrap() {
             assert_eq!(v, vec![LispVal::Integer(2), LispVal::Integer(3)]);
         } else {
             unreachable!();
@@ -229,8 +258,8 @@ mod tests {
 
     #[test]
     fn test_eval_cons() {
-        let mut interpreter = Interpreter::new("(cons 1 '(2 3))");
-        if let LispVal::List(v) = interpreter.eval_all().unwrap() {
+        let interpreter = Interpreter::new().interpret("(cons 1 '(2 3))");
+        if let LispVal::List(v) = interpreter.unwrap() {
             assert_eq!(
                 v,
                 vec![

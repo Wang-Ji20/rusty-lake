@@ -1,12 +1,14 @@
 [workspace]
 members = [
     "cv",
-    "scheme"
+    "scheme",
+    "scheme-frontend",
+    "scheme-server"
 ]
 
 [workspace.package]
 version = "0.0.0"
-edition = "2023"
+edition = "2021"
 authors = ["Ji Wang <824466875@qq.com>"]
 description = "Rust learn Repo"
 readme = "./README.md"
