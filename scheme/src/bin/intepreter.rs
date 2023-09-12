@@ -1,6 +1,6 @@
 use clap::Parser;
 
-/// A small Scheme interpreter, interactive mode on no arguments.
+/// A small Scheme interpreter, interactive mode when no arguments.
 #[derive(Parser)]
 struct Cli {
     /// Path to scheme source code. Default to stdin.

@@ -6,7 +6,10 @@ pub enum LispVal {
     List(Vec<LispVal>),
     Integer(i64),
     Bool(bool),
-    Function(fn(&[LispVal]) -> LispVal),
+    Function {
+        params: Vec<String>,
+        body: Vec<LispVal>,
+    },
 }
 
 impl LispVal {

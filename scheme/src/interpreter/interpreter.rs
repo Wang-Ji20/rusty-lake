@@ -51,12 +51,19 @@ impl Interpreter {
 
     fn eval(&mut self, v: &LispVal) -> Result<LispVal, String> {
         match v {
-            LispVal::Atom(_) => todo!(),
+            LispVal::Atom(s) => self.eval_atom(s),
             LispVal::List(v) => self.eval_list(v),
             i @ LispVal::Integer(_) => Ok(i.clone()),
             LispVal::Bool(_) => todo!(),
             _ => todo!(),
         }
+    }
+
+    fn eval_atom(&self, s: &str) -> Result<LispVal, String> {
+        self.env
+            .lookup(s)
+            .cloned()
+            .ok_or(format!("unknown atom {}", s))
     }
 
     fn eval_list(&mut self, v: &Vec<LispVal>) -> Result<LispVal, String> {
@@ -69,9 +76,11 @@ impl Interpreter {
                     let (LispVal::Atom(s), operands) = v else {
                         return Err(format!("{:?} is not applicable to {:?}", v.0, v.1));
                     };
-                    if s == "quote" {
-                        return Ok(operands[0].clone());
-                    }
+                    match s.as_str() {
+                        "quote" => return Ok(operands[0].clone()),
+                        "define" => return self.define_value(operands.to_vec()),
+                        _ => {}
+                    };
                     self.apply(s, operands)
                 }),
         }
@@ -173,6 +182,41 @@ impl Interpreter {
             })
     }
 
+    fn define_value(&mut self, v: Vec<LispVal>) -> Result<LispVal, String> {
+        match &v[0] {
+            LispVal::Atom(s) => {
+                let val = self.eval(&v[1])?;
+                self.env.new_binding(s.clone(), val.clone());
+                Ok(val)
+            }
+            LispVal::List(_) => self.define_function(v),
+            _ => Err("unknown define".to_string()),
+        }
+    }
+
+    fn define_function(&mut self, v: Vec<LispVal>) -> Result<LispVal, String> {
+        let LispVal::List(signature) = &v[0] else {
+            return Err("define function must have signatures".to_string());
+        };
+        let LispVal::Atom(name) = &signature[0] else {
+            return Err("define function must have a name".to_string());
+        };
+        let params = signature[1..]
+            .iter()
+            .map(|v| match v {
+                LispVal::Atom(s) => Ok(s.clone()),
+                _ => Err("define function signature must be atoms".to_string()),
+            })
+            .collect::<Result<Vec<String>, String>>();
+        let body = v[1..].to_vec();
+        let val = LispVal::Function {
+            params: params?,
+            body,
+        };
+        self.env.new_binding(name.clone(), val.clone());
+        Ok(val)
+    }
+
     fn lookup_primitives(
         s: &str,
     ) -> Result<Box<dyn Fn(Vec<LispVal>) -> Result<LispVal, String>>, String> {
@@ -272,4 +316,50 @@ mod tests {
             unreachable!();
         }
     }
+
+    #[test]
+    fn test_eval_define() {
+        let interpreter = Interpreter::new().interpret("(define x 1)");
+        if let LispVal::Integer(i) = interpreter.unwrap() {
+            assert_eq!(i, 1);
+        } else {
+            unreachable!();
+        }
+    }
+
+    #[test]
+    fn test_define_env_bound() {
+        let mut interpreter = Interpreter::new();
+        interpreter.interpret("(define x 1)").unwrap();
+        assert_eq!(
+            format!("{:?}", interpreter.env),
+            "Environment([EnvFrame([(\"x\", Integer(1))])])"
+        )
+    }
+
+    #[test]
+    fn test_define_lookup() {
+        let mut interpreter = Interpreter::new();
+        interpreter.interpret("(define x 1)").unwrap();
+        assert_eq!(interpreter.env.lookup("x"), Some(&LispVal::Integer(1)))
+    }
+
+    #[test]
+    fn test_define_reference() {
+        let mut interpreter = Interpreter::new();
+        interpreter.interpret("(define x 1)").unwrap();
+        assert_eq!(interpreter.interpret("x"), Ok(LispVal::Integer(1)))
+    }
+
+    #[test]
+    fn test_function_define() {
+        let mut interpreter = Interpreter::new();
+        interpreter.interpret("(define (add1 x) (+ x 1))").unwrap();
+        assert_eq!(
+            format!("{:?}", interpreter.env),
+            "Environment([EnvFrame([(\"add1\", Function { params: [\"x\"], body: [List([Atom(\"+\"), Atom(\"x\"), Integer(1)])] })])])"
+        )
+    }
+
+    // TODO: lookup function
 }
