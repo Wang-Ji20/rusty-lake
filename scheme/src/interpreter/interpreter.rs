@@ -87,11 +87,40 @@ impl Interpreter {
     }
 
     fn apply(&mut self, operator: &str, operands: &[LispVal]) -> Result<LispVal, String> {
-        operands
+        let evaluated_operands = operands
             .iter()
             .map(|v| self.eval(v))
-            .collect::<Result<Vec<LispVal>, String>>()
-            .and_then(Self::lookup_primitives(operator)?)
+            .collect::<Result<Vec<LispVal>, String>>()?;
+        match Self::lookup_primitives(operator) {
+            Ok(f) => return f(evaluated_operands),
+            Err(_) => self.apply_func(operator, evaluated_operands.as_slice()),
+        }
+    }
+
+    fn apply_func(&mut self, operator: &str, operands: &[LispVal]) -> Result<LispVal, String> {
+        let LispVal::Function { params, body } = self
+            .env
+            .lookup(operator)
+            .cloned()
+            .ok_or(format!("unknown function {}", operator))?
+        else {
+            return Err(format!("{} is not a function", operator));
+        };
+        if params.len() != operands.len() {
+            return Err(format!(
+                "function {} expects {} arguments, but got {}",
+                operator,
+                params.len(),
+                operands.len()
+            ));
+        }
+        self.env.new_frame();
+        for (param, operand) in params.iter().zip(operands.iter()) {
+            self.env.new_binding(param.clone(), operand.clone());
+        }
+        let result = self.eval(&body[0]);
+        self.env.pop_frame();
+        result
     }
 
     fn foldable_primitive(
@@ -361,5 +390,20 @@ mod tests {
         )
     }
 
-    // TODO: lookup function
+    #[test]
+    fn test_function() {
+        let mut interpreter = Interpreter::new();
+        interpreter.interpret("(define (add1 x) (+ x 1))").unwrap();
+        assert_eq!(interpreter.interpret("(add1 1)"), Ok(LispVal::Integer(2)))
+    }
+
+    #[test]
+    fn test_function_composition() {
+        let mut interpreter = Interpreter::new();
+        interpreter.interpret("(define (add1 x) (+ x 1))").unwrap();
+        interpreter
+            .interpret("(define (add2 x) (+ (add1 x) 1))")
+            .unwrap();
+        assert_eq!(interpreter.interpret("(add2 1)"), Ok(LispVal::Integer(3)))
+    }
 }

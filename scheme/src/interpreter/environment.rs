@@ -17,7 +17,7 @@ impl EnvFrame {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Environment(Vec<EnvFrame>);
 
 impl Environment {
