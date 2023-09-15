@@ -54,7 +54,7 @@ impl Interpreter {
             LispVal::Atom(s) => self.eval_atom(s),
             LispVal::List(v) => self.eval_list(v),
             i @ LispVal::Integer(_) => Ok(i.clone()),
-            LispVal::Bool(_) => todo!(),
+            b @ LispVal::Bool(_) => Ok(b.clone()),
             _ => todo!(),
         }
     }
@@ -79,10 +79,35 @@ impl Interpreter {
                     match s.as_str() {
                         "quote" => return Ok(operands[0].clone()),
                         "define" => return self.define_value(operands.to_vec()),
+                        "if" => return self.eval_if(operands.to_vec()),
                         _ => {}
                     };
                     self.apply(s, operands)
                 }),
+        }
+    }
+
+    fn eval_if(&mut self, to_vec: Vec<LispVal>) -> Result<LispVal, String> {
+        let (cond, branches) = to_vec.split_first().ok_or("if must have a condition")?;
+        let cond = self.eval(cond)?; // shadowed
+        match branches.len() {
+            1 => self.eval_if_only(cond, to_vec),
+            2 => self.eval_if_else(cond, to_vec),
+            _ => Err("if must have 2 or 3 arguments".to_string()),
+        }
+    }
+
+    fn eval_if_only(&mut self, cond: LispVal, to_vec: Vec<LispVal>) -> Result<LispVal, String> {
+        match cond {
+            LispVal::Bool(false) => Err("Unspecified return value".to_string()),
+            _ => self.eval(&to_vec[1]),
+        }
+    }
+
+    fn eval_if_else(&mut self, cond: LispVal, to_vec: Vec<LispVal>) -> Result<LispVal, String> {
+        match cond {
+            LispVal::Bool(false) => self.eval(&to_vec[2]),
+            _ => self.eval(&to_vec[1]),
         }
     }
 
@@ -92,7 +117,7 @@ impl Interpreter {
             .map(|v| self.eval(v))
             .collect::<Result<Vec<LispVal>, String>>()?;
         match Self::lookup_primitives(operator) {
-            Ok(f) => return f(evaluated_operands),
+            Ok(f) => f(evaluated_operands),
             Err(_) => self.apply_func(operator, evaluated_operands.as_slice()),
         }
     }
@@ -159,6 +184,24 @@ impl Interpreter {
 
     fn sub_int(acc: i64, i: i64) -> i64 {
         acc - i
+    }
+
+    fn eq_lisp(v: Vec<LispVal>) -> Result<LispVal, String> {
+        let mut iter = v.iter();
+        let first_int = iter
+            .next()
+            .ok_or("Cannot compare empty list".to_string())?
+            .to_integer()
+            .ok_or("Cannot compare non-integer".to_string())?;
+        for i in iter {
+            let i = i
+                .to_integer()
+                .ok_or("Cannot compare non-integer".to_string())?;
+            if i != first_int {
+                return Ok(LispVal::Bool(false));
+            }
+        }
+        Ok(LispVal::Bool(true))
     }
 
     fn sub_impl(v: Vec<LispVal>) -> Result<LispVal, String> {
@@ -262,6 +305,7 @@ impl Interpreter {
             "car" => Ok(Box::new(Self::car_list)),
             "cdr" => Ok(Box::new(Self::cdr_list)),
             "cons" => Ok(Box::new(Self::cons_list)),
+            "eq?" | "=" => Ok(Box::new(Self::eq_lisp)),
             _ => Err(format!("unknown primitive {}", s)),
         }
     }
@@ -405,5 +449,77 @@ mod tests {
             .interpret("(define (add2 x) (+ (add1 x) 1))")
             .unwrap();
         assert_eq!(interpreter.interpret("(add2 1)"), Ok(LispVal::Integer(3)))
+    }
+
+    #[test]
+    fn test_if() {
+        let mut interpreter = Interpreter::new();
+        assert_eq!(
+            interpreter.interpret("(if #t 1 2)"),
+            Ok(LispVal::Integer(1))
+        )
+    }
+
+    #[test]
+    fn test_if_else() {
+        let mut interpreter = Interpreter::new();
+        assert_eq!(
+            interpreter.interpret("(if #f 1 2)"),
+            Ok(LispVal::Integer(2))
+        )
+    }
+
+    #[test]
+    fn test_eq() {
+        let mut interpreter = Interpreter::new();
+        assert_eq!(interpreter.interpret("(= 1 1)"), Ok(LispVal::Bool(true)))
+    }
+
+    #[test]
+    fn test_many_eq() {
+        let mut interpreter = Interpreter::new();
+        assert_eq!(
+            interpreter.interpret("(= 1 1 1 1)"),
+            Ok(LispVal::Bool(true))
+        )
+    }
+
+    #[test]
+    fn test_many_eq_f() {
+        let mut interpreter = Interpreter::new();
+        assert_eq!(
+            interpreter.interpret("(= 1 1 1 2)"),
+            Ok(LispVal::Bool(false))
+        )
+    }
+
+    #[test]
+    fn test_eq_with_eval() {
+        let mut interpreter = Interpreter::new();
+        assert_eq!(
+            interpreter.interpret("(= (+ 1 1) 2)"),
+            Ok(LispVal::Bool(true))
+        )
+    }
+
+    #[test]
+    fn test_fib_func() {
+        let mut interpreter = Interpreter::new();
+        interpreter
+            .interpret(
+                "(define (fib n) (if (= n 0) 0 (if (= n 1) 1 (+ (fib (- n 1)) (fib (- n 2))))))",
+            )
+            .unwrap();
+        assert_eq!(interpreter.interpret("(fib 0)"), Ok(LispVal::Integer(0)));
+        assert_eq!(interpreter.interpret("(fib 1)"), Ok(LispVal::Integer(1)));
+        assert_eq!(interpreter.interpret("(fib 2)"), Ok(LispVal::Integer(1)));
+        assert_eq!(interpreter.interpret("(fib 3)"), Ok(LispVal::Integer(2)));
+        assert_eq!(interpreter.interpret("(fib 4)"), Ok(LispVal::Integer(3)));
+        assert_eq!(interpreter.interpret("(fib 5)"), Ok(LispVal::Integer(5)));
+        assert_eq!(interpreter.interpret("(fib 6)"), Ok(LispVal::Integer(8)));
+        assert_eq!(interpreter.interpret("(fib 7)"), Ok(LispVal::Integer(13)));
+        assert_eq!(interpreter.interpret("(fib 8)"), Ok(LispVal::Integer(21)));
+        assert_eq!(interpreter.interpret("(fib 9)"), Ok(LispVal::Integer(34)));
+        assert_eq!(interpreter.interpret("(fib 10)"), Ok(LispVal::Integer(55)));
     }
 }
