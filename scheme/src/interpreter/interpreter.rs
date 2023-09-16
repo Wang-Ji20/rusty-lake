@@ -80,6 +80,7 @@ impl Interpreter {
                         "quote" => return Ok(operands[0].clone()),
                         "define" => return self.define_value(operands.to_vec()),
                         "if" => return self.eval_if(operands.to_vec()),
+                        "cond" => return self.eval_cond(operands.to_vec()),
                         _ => {}
                     };
                     self.apply(s, operands)
@@ -108,6 +109,30 @@ impl Interpreter {
         match cond {
             LispVal::Bool(false) => self.eval(&to_vec[2]),
             _ => self.eval(&to_vec[1]),
+        }
+    }
+
+    fn eval_cond(&mut self, operands: Vec<LispVal>) -> Result<LispVal, String> {
+        for branch in operands {
+            if let Some(result) = self.eval_cond_branch(branch) {
+                return Ok(result);
+            }
+        }
+        return Err("No matching condition".to_string());
+    }
+
+    fn eval_cond_branch(&mut self, branch: LispVal) -> Option<LispVal> {
+        let LispVal::List(v) = branch else {
+            return None;
+        };
+        let (cond, body) = v.split_first()?;
+        match cond {
+            LispVal::Atom(s) if s.eq("else") => self.eval(&body[0]).ok(),
+            l @ LispVal::List(_) => match self.eval(l) {
+                Ok(LispVal::Bool(true)) => self.eval(&body[0]).ok(),
+                _ => None,
+            },
+            _ => None,
         }
     }
 
@@ -202,6 +227,37 @@ impl Interpreter {
             }
         }
         Ok(LispVal::Bool(true))
+    }
+
+    /// force two args now
+    fn gt_lisp(v: Vec<LispVal>) -> Result<LispVal, String> {
+        let mut iter = v.iter();
+        let first_int = iter
+            .next()
+            .ok_or("Cannot compare empty list".to_string())?
+            .to_integer()
+            .ok_or("Cannot compare non-integer".to_string())?;
+        let second_int = iter
+            .next()
+            .ok_or("Cannot compare empty list".to_string())?
+            .to_integer()
+            .ok_or("Cannot compare non-integer".to_string())?;
+        Ok(LispVal::Bool(first_int > second_int))
+    }
+
+    fn lt_lisp(v: Vec<LispVal>) -> Result<LispVal, String> {
+        let mut iter = v.iter();
+        let first_int = iter
+            .next()
+            .ok_or("Cannot compare empty list".to_string())?
+            .to_integer()
+            .ok_or("Cannot compare non-integer".to_string())?;
+        let second_int = iter
+            .next()
+            .ok_or("Cannot compare empty list".to_string())?
+            .to_integer()
+            .ok_or("Cannot compare non-integer".to_string())?;
+        Ok(LispVal::Bool(first_int < second_int))
     }
 
     fn sub_impl(v: Vec<LispVal>) -> Result<LispVal, String> {
@@ -306,6 +362,8 @@ impl Interpreter {
             "cdr" => Ok(Box::new(Self::cdr_list)),
             "cons" => Ok(Box::new(Self::cons_list)),
             "eq?" | "=" => Ok(Box::new(Self::eq_lisp)),
+            ">" => Ok(Box::new(Self::gt_lisp)),
+            "<" => Ok(Box::new(Self::lt_lisp)),
             _ => Err(format!("unknown primitive {}", s)),
         }
     }
@@ -521,5 +579,31 @@ mod tests {
         assert_eq!(interpreter.interpret("(fib 8)"), Ok(LispVal::Integer(21)));
         assert_eq!(interpreter.interpret("(fib 9)"), Ok(LispVal::Integer(34)));
         assert_eq!(interpreter.interpret("(fib 10)"), Ok(LispVal::Integer(55)));
+    }
+
+    #[test]
+    fn test_gt() {
+        let mut interpreter = Interpreter::new();
+        assert_eq!(interpreter.interpret("(> 1 2)"), Ok(LispVal::Bool(false)))
+    }
+
+    #[test]
+    fn test_lt() {
+        let mut interpreter = Interpreter::new();
+        assert_eq!(interpreter.interpret("(< 1 2)"), Ok(LispVal::Bool(true)))
+    }
+
+    #[test]
+    fn test_cond_abs() {
+        let mut interpreter = Interpreter::new();
+        interpreter
+            .interpret("(define (abs x) (cond ((> x 0) x) ((= x 0) 0) ((< x 0) (- 0 x))))")
+            .unwrap();
+        assert_eq!(interpreter.interpret("(abs 1)"), Ok(LispVal::Integer(1)));
+        assert_eq!(interpreter.interpret("(abs 0)"), Ok(LispVal::Integer(0)));
+        assert_eq!(
+            interpreter.interpret("(abs (- 0 1))"),
+            Ok(LispVal::Integer(1))
+        );
     }
 }

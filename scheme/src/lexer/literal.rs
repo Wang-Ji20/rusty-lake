@@ -260,10 +260,9 @@ mod tests {
             unreachable!();
         }
 
-        if let Tokens::Int(2) = lexer.get_next_token() {
-        } else {
+        let Tokens::Int(2) = lexer.get_next_token() else {
             unreachable!();
-        }
+        };
 
         if let Tokens::RPAREN = lexer.get_next_token() {
         } else {
